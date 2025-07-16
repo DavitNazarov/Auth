@@ -1,6 +1,7 @@
 import bcryptjs from "bcryptjs";
 import { User } from "../model/User.model.js";
 import generateTokenAndSetCookie from "../utils/generateTokenAndSetCookie.js";
+import { sendVerificationCode } from "../mail/email.js";
 
 export const signup = async (req, res) => {
   const { email, password, name } = req.body;
@@ -18,8 +19,11 @@ export const signup = async (req, res) => {
 
     const hashedPassword = await bcryptjs.hash(password, 10);
     const verificationToken = Math.floor(
-      100000 + Math.random * 900000
+      100000 + Math.random() * 900000
     ).toString();
+
+    console.log(verificationToken);
+    console.log(hashedPassword);
 
     const user = new User({
       email,
@@ -33,6 +37,8 @@ export const signup = async (req, res) => {
 
     //* jwt
     generateTokenAndSetCookie(res, user._id);
+
+    await sendVerificationCode(user.email, verificationToken);
 
     res.status(201).json({
       message: "User created successfully ",
