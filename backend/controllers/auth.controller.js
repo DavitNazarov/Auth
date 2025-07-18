@@ -1,7 +1,9 @@
 import bcryptjs from "bcryptjs";
-import { User } from "../model/User.model.js";
+import crypto from "crypto";
+
 import generateTokenAndSetCookie from "../utils/generateTokenAndSetCookie.js";
 import { sendVerificationCode, sendWelcomeEmail } from "../mail/email.js";
+import { User } from "../model/User.model.js";
 
 export const signup = async (req, res) => {
   const { email, password, name } = req.body;
@@ -49,7 +51,7 @@ export const signup = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -88,9 +90,63 @@ export const verifyEmail = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-  res.send("login route");
+  const { email, password } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: "User not found, please signup or check your email",
+      });
+    }
+    const isPasswordValid = await bcryptjs.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password, please try again",
+      });
+    }
+    generateTokenAndSetCookie(res, user._id);
+    user.lastLogin = new Date();
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: {
+        ...user._doc,
+        password: undefined, // don't send password back
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 export const logout = async (req, res) => {
   res.clearCookie("token");
   res.status(200).json({ success: true, message: "Logged out successfully" });
+};
+
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found, please signup or check your email",
+      });
+    }
+    // Generate a reset token
+    const resetToken = crypto.randomBytes(20).toString("hex");
+    const resetTokenExpiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpiresAt = resetTokenExpiresAt;
+    await user.save();
+
+    // I will continue to send the reset password email
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
