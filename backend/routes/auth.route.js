@@ -1,6 +1,4 @@
 import express from "express";
-import rateLimit from "express-rate-limit"; // ✅ NEW import
-
 import {
   login,
   logout,
@@ -11,28 +9,25 @@ import {
   checkAuth,
 } from "../controllers/auth.controller.js";
 import { verifyToken } from "../middleware/verifyToken.js";
+import {
+  authLimiter,
+  resetPasswordLimiter,
+} from "../middleware/rateLimiters.js"; // ✅ NEW: import limiters
 
 const router = express.Router();
 
-//  Define rate limiter only for reset password route
-const resetPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per 15 mins
-  message: "Too many reset attempts. Please try again in 15 minutes.",
-  standardHeaders: true, // send RateLimit-* headers
-  legacyHeaders: false, // disable X-RateLimit-* headers
-});
-
-// Apply middleware to the reset password route
+// ✅ Protected Route
 router.get("/check-auth", verifyToken, checkAuth);
 
-router.post("/signup", signup);
-router.post("/login", login);
-router.post("/logout", logout);
-router.post("/verify-email", verifyEmail);
-router.post("/forgot-password", forgotPassword);
+// ✅ Apply rate limiter to sensitive endpoints
+router.post("/signup", authLimiter, signup);
+router.post("/login", authLimiter, login);
+router.post("/logout", logout); // Optional to protect
 
-// Only this route is protected with limiter
+router.post("/verify-email", authLimiter, verifyEmail);
+router.post("/forgot-password", authLimiter, forgotPassword);
+
+// ✅ Special limiter for reset password
 router.post("/reset-password/:token", resetPasswordLimiter, resetPassword);
 
 export default router;
