@@ -2,7 +2,11 @@ import bcryptjs from "bcryptjs";
 import crypto from "crypto";
 
 import generateTokenAndSetCookie from "../utils/generateTokenAndSetCookie.js";
-import { sendVerificationCode, sendWelcomeEmail } from "../mail/email.js";
+import {
+  sendVerificationCode,
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+} from "../mail/email.js";
 import { User } from "../model/User.model.js";
 
 export const signup = async (req, res) => {
@@ -145,7 +149,14 @@ export const forgotPassword = async (req, res) => {
     user.resetPasswordExpiresAt = resetTokenExpiresAt;
     await user.save();
 
-    // I will continue to send the reset password email
+    await sendPasswordResetEmail(
+      user.email,
+      `${process.env.CLIENT_URL}/reset-password/${resetToken}`
+    );
+    res.status(200).json({
+      success: true,
+      message: "Password reset link sent to your email",
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
