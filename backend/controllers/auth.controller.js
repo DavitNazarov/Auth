@@ -134,6 +134,12 @@ export const logout = async (req, res) => {
 
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
+  if (typeof email !== "string") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email format",
+    });
+  }
   try {
     const user = await User.findOne({ email });
     if (!user) {
